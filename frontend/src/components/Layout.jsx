@@ -22,6 +22,7 @@ export default function Layout() {
             <NavLink to="/products">Products</NavLink>
             {isAuthenticated ? (
               <>
+                <NavLink to="/cart">Cart</NavLink>
                 <NavLink to="/account">Account</NavLink>
                 <button type="button" className="nav-button" onClick={logout}>
                   Logout {user?.first_name || user?.username || ''}

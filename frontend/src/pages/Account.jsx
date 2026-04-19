@@ -364,7 +364,7 @@ export default function Account() {
               <div>
                 <strong>Order #{order.id}</strong>
                 <p className="muted">
-                  {new Date(order.created_at).toLocaleDateString()} · {order.items.length} item(s)
+                  {new Date(order.created_at).toLocaleDateString()} - {order.items.length} item(s)
                 </p>
               </div>
               <div className="order-summary">

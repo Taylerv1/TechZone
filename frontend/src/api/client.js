@@ -132,3 +132,38 @@ export function deleteAddress(token, id) {
 export function getOrders(token) {
   return request('/orders/', { token });
 }
+
+export function getCart(token) {
+  return request('/cart/', { token });
+}
+
+export function addCartItem(token, payload) {
+  return request('/cart/items/', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateCartItem(token, id, payload) {
+  return request(`/cart/items/${id}/`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteCartItem(token, id) {
+  return request(`/cart/items/${id}/`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
+export function checkoutOrder(token, payload) {
+  return request('/orders/checkout/', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
+  });
+}

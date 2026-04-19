@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
-import { getProduct } from '../api/client.js';
+import { addCartItem, getProduct } from '../api/client.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import { getProductImage } from '../utils/productImages.js';
 
 export default function ProductDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { accessToken, isAuthenticated } = useAuth();
   const [product, setProduct] = useState(null);
   const [selectedImage, setSelectedImage] = useState('');
+  const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -56,6 +62,29 @@ export default function ProductDetail() {
   const images = product.images?.length ? product.images : [];
   const isOutOfStock = product.stock <= 0;
 
+  async function handleAddToCart() {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: { pathname: `/products/${product.id}` } } });
+      return;
+    }
+
+    setIsAdding(true);
+    setError('');
+    setMessage('');
+
+    try {
+      await addCartItem(accessToken, {
+        product_id: product.id,
+        quantity,
+      });
+      setMessage('Product added to cart.');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsAdding(false);
+    }
+  }
+
   return (
     <section className="product-detail-page">
       <Link to="/products" className="text-link">Back to products</Link>
@@ -91,9 +120,30 @@ export default function ProductDetail() {
             </span>
           </div>
 
-          <div className="detail-note">
-            Cart actions are added in the cart phase.
+          <div className="purchase-panel">
+            <label>
+              Quantity
+              <input
+                type="number"
+                min="1"
+                max={product.stock}
+                value={quantity}
+                disabled={isOutOfStock || isAdding}
+                onChange={(event) => setQuantity(Number(event.target.value))}
+              />
+            </label>
+            <button
+              type="button"
+              className="primary-button"
+              disabled={isOutOfStock || isAdding}
+              onClick={handleAddToCart}
+            >
+              {isAdding ? 'Adding...' : 'Add to cart'}
+            </button>
+            <Link to="/cart" className="secondary-button">View cart</Link>
           </div>
+
+          {message && <p className="success-message">{message}</p>}
         </div>
       </div>
     </section>
