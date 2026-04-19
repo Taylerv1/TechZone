@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from .models import Address, Category, Product, ProductImage
+from .models import Address, Cart, CartItem, Category, Product, ProductImage
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -120,3 +120,85 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+
+
+class CartItemSerializer(serializers.ModelSerializer):
+    product = ProductListSerializer(read_only=True)
+    item_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CartItem
+        fields = ['id', 'product', 'quantity', 'item_total', 'created_at', 'updated_at']
+
+    def get_item_total(self, obj):
+        return obj.product.price * obj.quantity
+
+
+class CartSerializer(serializers.ModelSerializer):
+    items = CartItemSerializer(many=True, read_only=True)
+    total_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'items', 'total_price', 'created_at', 'updated_at']
+
+    def get_total_price(self, obj):
+        return sum(item.product.price * item.quantity for item in obj.items.all())
+
+
+class CartItemCreateSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1, default=1)
+
+    def validate_product_id(self, value):
+        try:
+            product = Product.objects.get(id=value, is_active=True)
+        except Product.DoesNotExist as exc:
+            raise serializers.ValidationError('Product not found.') from exc
+
+        self.context['product'] = product
+        return value
+
+    def validate(self, attrs):
+        product = self.context['product']
+        cart = self.context['cart']
+        quantity = attrs.get('quantity', 1)
+        existing_item = CartItem.objects.filter(cart=cart, product=product).first()
+        current_quantity = existing_item.quantity if existing_item else 0
+        requested_quantity = current_quantity + quantity
+
+        if requested_quantity > product.stock:
+            raise serializers.ValidationError(
+                {'quantity': 'Requested quantity is greater than available stock.'}
+            )
+
+        return attrs
+
+    def save(self, **kwargs):
+        product = self.context['product']
+        cart = self.context['cart']
+        quantity = self.validated_data.get('quantity', 1)
+        item, created = CartItem.objects.get_or_create(
+            cart=cart,
+            product=product,
+            defaults={'quantity': quantity},
+        )
+
+        if not created:
+            item.quantity += quantity
+            item.save(update_fields=['quantity', 'updated_at'])
+
+        return item
+
+
+class CartItemUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CartItem
+        fields = ['quantity']
+
+    def validate_quantity(self, value):
+        if value > self.instance.product.stock:
+            raise serializers.ValidationError(
+                'Requested quantity is greater than available stock.'
+            )
+        return value

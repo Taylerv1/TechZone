@@ -9,10 +9,16 @@ from rest_framework.generics import (
     RetrieveUpdateDestroyAPIView,
 )
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from .models import Address, Category, Product
+from .models import Address, Cart, CartItem, Category, Product
 from .serializers import (
     AddressSerializer,
+    CartItemCreateSerializer,
+    CartItemSerializer,
+    CartItemUpdateSerializer,
+    CartSerializer,
     CategorySerializer,
     ProductDetailSerializer,
     ProductListSerializer,
@@ -52,6 +58,56 @@ class AddressDetailView(RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return Address.objects.filter(user=self.request.user)
+
+
+class CartView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        serializer = CartSerializer(cart, context={'request': request})
+        return Response(serializer.data)
+
+
+class CartItemCreateView(CreateAPIView):
+    serializer_class = CartItemCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        cart, _ = Cart.objects.get_or_create(user=self.request.user)
+        context['cart'] = cart
+        return context
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        item = serializer.save()
+        output_serializer = CartItemSerializer(item, context={'request': request})
+        return Response(output_serializer.data, status=201)
+
+
+class CartItemDetailView(RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['patch', 'delete', 'options']
+
+    def get_serializer_class(self):
+        if self.request.method == 'PATCH':
+            return CartItemUpdateSerializer
+        return CartItemSerializer
+
+    def get_queryset(self):
+        cart, _ = Cart.objects.get_or_create(user=self.request.user)
+        return CartItem.objects.filter(cart=cart)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', True)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        item = serializer.save()
+        output_serializer = CartItemSerializer(item, context={'request': request})
+        return Response(output_serializer.data)
 
 
 class CategoryListView(ListAPIView):
