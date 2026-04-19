@@ -20,6 +20,8 @@ from .serializers import (
     CartItemUpdateSerializer,
     CartSerializer,
     CategorySerializer,
+    CheckoutSerializer,
+    OrderSerializer,
     ProductDetailSerializer,
     ProductListSerializer,
     ProfileSerializer,
@@ -108,6 +110,44 @@ class CartItemDetailView(RetrieveUpdateDestroyAPIView):
         item = serializer.save()
         output_serializer = CartItemSerializer(item, context={'request': request})
         return Response(output_serializer.data)
+
+
+class CheckoutView(CreateAPIView):
+    serializer_class = CheckoutSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        cart, _ = Cart.objects.get_or_create(user=self.request.user)
+        context['cart'] = cart
+        return context
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        order = serializer.save()
+        output_serializer = OrderSerializer(order, context={'request': request})
+        return Response(output_serializer.data, status=201)
+
+
+class OrderListView(ListAPIView):
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            self.request.user.orders.all()
+            .prefetch_related('items')
+            .order_by('-created_at')
+        )
+
+
+class OrderDetailView(RetrieveAPIView):
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return self.request.user.orders.all().prefetch_related('items')
 
 
 class CategoryListView(ListAPIView):

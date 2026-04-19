@@ -1,8 +1,18 @@
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
+from django.db import transaction
 from rest_framework import serializers
 
-from .models import Address, Cart, CartItem, Category, Product, ProductImage
+from .models import (
+    Address,
+    Cart,
+    CartItem,
+    Category,
+    Order,
+    OrderItem,
+    Product,
+    ProductImage,
+)
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -202,3 +212,138 @@ class CartItemUpdateSerializer(serializers.ModelSerializer):
                 'Requested quantity is greater than available stock.'
             )
         return value
+
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderItem
+        fields = ['id', 'product', 'product_name', 'quantity', 'unit_price', 'total_price']
+        read_only_fields = fields
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            'id',
+            'status',
+            'full_name',
+            'phone',
+            'address_line',
+            'city',
+            'state',
+            'postal_code',
+            'country',
+            'payment_method',
+            'total_price',
+            'items',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = fields
+
+
+class CheckoutSerializer(serializers.Serializer):
+    full_name = serializers.CharField(max_length=150)
+    phone = serializers.CharField(max_length=30)
+    address_line = serializers.CharField(max_length=255)
+    city = serializers.CharField(max_length=100)
+    state = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    postal_code = serializers.CharField(max_length=30)
+    country = serializers.CharField(max_length=100)
+    payment_method = serializers.CharField(max_length=50, required=False, default='mock')
+
+    def validate_payment_method(self, value):
+        if value != 'mock':
+            raise serializers.ValidationError('Only mock payment is supported.')
+        return value
+
+    def validate(self, attrs):
+        cart = self.context['cart']
+        items = list(cart.items.select_related('product'))
+
+        if not items:
+            raise serializers.ValidationError('Cart is empty.')
+
+        for item in items:
+            if item.quantity > item.product.stock:
+                raise serializers.ValidationError(
+                    {
+                        'cart': (
+                            f'Only {item.product.stock} item(s) available for '
+                            f'{item.product.name}.'
+                        )
+                    }
+                )
+
+        return attrs
+
+    @transaction.atomic
+    def save(self, **kwargs):
+        cart = self.context['cart']
+        user = self.context['request'].user
+        items = list(cart.items.select_related('product'))
+
+        if not items:
+            raise serializers.ValidationError('Cart is empty.')
+
+        product_ids = [item.product_id for item in items]
+        products = {
+            product.id: product
+            for product in Product.objects.select_for_update().filter(id__in=product_ids)
+        }
+
+        for item in items:
+            product = products[item.product_id]
+            if item.quantity > product.stock:
+                raise serializers.ValidationError(
+                    {
+                        'cart': (
+                            f'Only {product.stock} item(s) available for '
+                            f'{product.name}.'
+                        )
+                    }
+                )
+
+        total_price = sum(
+            products[item.product_id].price * item.quantity
+            for item in items
+        )
+
+        order = Order.objects.create(
+            user=user,
+            status=Order.Status.PENDING,
+            full_name=self.validated_data['full_name'],
+            phone=self.validated_data['phone'],
+            address_line=self.validated_data['address_line'],
+            city=self.validated_data['city'],
+            state=self.validated_data.get('state', ''),
+            postal_code=self.validated_data['postal_code'],
+            country=self.validated_data['country'],
+            payment_method=self.validated_data.get('payment_method', 'mock'),
+            total_price=total_price,
+        )
+
+        order_items = []
+        for item in items:
+            product = products[item.product_id]
+            unit_price = product.price
+            quantity = item.quantity
+            order_items.append(
+                OrderItem(
+                    order=order,
+                    product=product,
+                    product_name=product.name,
+                    quantity=quantity,
+                    unit_price=unit_price,
+                    total_price=unit_price * quantity,
+                )
+            )
+            product.stock -= quantity
+            product.save(update_fields=['stock', 'updated_at'])
+
+        OrderItem.objects.bulk_create(order_items)
+        cart.items.all().delete()
+        return order
