@@ -1,6 +1,10 @@
 import { NavLink, Outlet } from 'react-router-dom';
 
+import { useAuth } from '../context/AuthContext.jsx';
+
 export default function Layout() {
+  const { isAuthenticated, logout, user } = useAuth();
+
   return (
     <div className="app-shell">
       <header className="site-header">
@@ -16,6 +20,19 @@ export default function Layout() {
           <div className="nav-links">
             <NavLink to="/">Home</NavLink>
             <NavLink to="/products">Products</NavLink>
+            {isAuthenticated ? (
+              <>
+                <NavLink to="/account">Account</NavLink>
+                <button type="button" className="nav-button" onClick={logout}>
+                  Logout {user?.first_name || user?.username || ''}
+                </button>
+              </>
+            ) : (
+              <>
+                <NavLink to="/login">Login</NavLink>
+                <NavLink to="/register">Register</NavLink>
+              </>
+            )}
           </div>
         </nav>
       </header>

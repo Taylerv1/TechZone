@@ -101,6 +101,18 @@ img {
   color: var(--accent-dark);
 }
 
+.nav-button {
+  border: 0;
+  padding: 0;
+  color: #333333;
+  background: transparent;
+  cursor: pointer;
+}
+
+.nav-button:hover {
+  color: var(--accent-dark);
+}
+
 .hero {
   min-height: 430px;
   position: relative;
@@ -143,7 +155,9 @@ img {
 
 .section,
 .catalog-page,
-.product-detail-page {
+.product-detail-page,
+.auth-page,
+.account-page {
   max-width: 1180px;
   width: 100%;
   margin: 0 auto;
@@ -151,7 +165,8 @@ img {
 }
 
 .section-heading,
-.catalog-heading {
+.catalog-heading,
+.account-heading {
   display: flex;
   justify-content: space-between;
   align-items: end;
@@ -180,6 +195,10 @@ img {
 
 .error-message {
   color: var(--danger);
+}
+
+.success-message {
+  color: var(--accent-dark);
 }
 
 .primary-button,
@@ -445,6 +464,126 @@ img {
   color: var(--muted);
 }
 
+.auth-page {
+  display: grid;
+  place-items: center;
+}
+
+.auth-panel {
+  width: min(100%, 460px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 28px;
+  background: var(--surface);
+}
+
+.auth-panel.wide {
+  width: min(100%, 720px);
+}
+
+.auth-panel h1,
+.account-heading h1,
+.account-section h2 {
+  margin: 8px 0 20px;
+}
+
+.form-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.form-grid.two-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-grid label {
+  display: grid;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.form-grid input {
+  min-height: 42px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--ink);
+  background: #ffffff;
+}
+
+.full-span {
+  grid-column: 1 / -1;
+}
+
+.checkbox-label {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkbox-label input {
+  width: 18px;
+  min-height: 18px;
+}
+
+.account-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.account-section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 22px;
+  margin-bottom: 24px;
+  background: var(--surface);
+}
+
+.address-list,
+.order-list {
+  display: grid;
+  gap: 14px;
+}
+
+.list-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+}
+
+.list-card p {
+  margin: 8px 0 0;
+}
+
+.list-actions,
+.order-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.status-pill {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--accent-dark);
+  background: #e9fbf7;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
 .site-footer {
   margin-top: auto;
   background: #111111;
@@ -465,8 +604,10 @@ img {
   .main-nav,
   .section-heading,
   .catalog-heading,
+  .account-heading,
   .product-meta,
   .detail-price-row,
+  .list-card,
   .site-footer {
     align-items: flex-start;
     flex-direction: column;
@@ -477,7 +618,9 @@ img {
   }
 
   .catalog-layout,
-  .product-detail {
+  .product-detail,
+  .account-grid,
+  .form-grid.two-column {
     grid-template-columns: 1fr;
   }
 
