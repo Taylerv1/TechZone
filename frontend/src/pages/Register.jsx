@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 
+import AuthScene from '../components/AuthScene.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
 const initialForm = {
@@ -44,6 +45,7 @@ export default function Register() {
 
   return (
     <section className="auth-page">
+      <AuthScene />
       <div className="auth-panel wide">
         <p className="eyebrow">Create account</p>
         <h1>Register</h1>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 
+import AuthScene from '../components/AuthScene.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Login() {
@@ -38,6 +39,7 @@ export default function Login() {
 
   return (
     <section className="auth-page">
+      <AuthScene />
       <div className="auth-panel">
         <p className="eyebrow">Welcome back</p>
         <h1>Login</h1>
