@@ -1022,12 +1022,12 @@ img {
 
 .auth-page {
   max-width: none;
-  min-height: calc(100vh - 156px);
+  min-height: 100vh;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 46px max(28px, calc((100vw - 1320px) / 2));
+  padding: 52px clamp(28px, 8vw, 120px);
   overflow: hidden;
   isolation: isolate;
 }
@@ -1046,9 +1046,9 @@ img {
 .auth-scene {
   position: absolute;
   top: 0;
-  right: 0;
+  right: -8vw;
   bottom: 0;
-  width: 52vw;
+  width: 72vw;
   z-index: -1;
   pointer-events: none;
   opacity: 0.92;
@@ -1359,8 +1359,8 @@ img {
   }
 
   .auth-page {
-    min-height: 720px;
-    padding: 44px 28px 260px;
+    min-height: 100vh;
+    padding: 44px 28px 270px;
   }
 
   .auth-scene {
@@ -1448,7 +1448,7 @@ img {
   }
 
   .auth-page {
-    min-height: 720px;
+    min-height: 100vh;
     padding: 44px 24px 250px;
   }
 
