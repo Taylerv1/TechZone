@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import ProductCard from '../components/ProductCard.jsx';
@@ -13,6 +13,40 @@ const initialFilters = {
   sort: 'newest',
 };
 
+function getFiltersFromSearchParams(searchParams) {
+  return {
+    ...initialFilters,
+    search: searchParams.get('search') || '',
+    category: searchParams.get('category') || '',
+    min_price: searchParams.get('min_price') || '',
+    max_price: searchParams.get('max_price') || '',
+    availability: searchParams.get('availability') || '',
+    sort: searchParams.get('sort') || 'newest',
+  };
+}
+
+function getPageFromSearchParams(searchParams) {
+  const page = Number(searchParams.get('page')) || 1;
+  return page > 0 ? page : 1;
+}
+
+function buildSearchParams(filters, page) {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) {
+      params.set(key, value);
+    }
+  });
+  if (page > 1) {
+    params.set('page', String(page));
+  }
+  return params;
+}
+
+function areFiltersEqual(first, second) {
+  return Object.keys(initialFilters).every((key) => first[key] === second[key]);
+}
+
 export default function Products() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [categories, setCategories] = useState([]);
@@ -22,18 +56,20 @@ export default function Products() {
     previous: null,
     results: [],
   });
-  const [filters, setFilters] = useState(() => ({
-    ...initialFilters,
-    search: searchParams.get('search') || '',
-    category: searchParams.get('category') || '',
-    min_price: searchParams.get('min_price') || '',
-    max_price: searchParams.get('max_price') || '',
-    availability: searchParams.get('availability') || '',
-    sort: searchParams.get('sort') || 'newest',
-  }));
-  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
+  const [filters, setFilters] = useState(() => getFiltersFromSearchParams(searchParams));
+  const [page, setPage] = useState(() => getPageFromSearchParams(searchParams));
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const nextFilters = getFiltersFromSearchParams(searchParams);
+    const nextPage = getPageFromSearchParams(searchParams);
+
+    setFilters((current) => (
+      areFiltersEqual(current, nextFilters) ? current : nextFilters
+    ));
+    setPage((current) => (current === nextPage ? current : nextPage));
+  }, [searchParams]);
 
   useEffect(() => {
     let isMounted = true;
@@ -90,32 +126,27 @@ export default function Products() {
   const canGoNext = Boolean(productsData.next);
   const canGoPrevious = Boolean(productsData.previous);
 
-  const activeParams = useMemo(() => {
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) {
-        params.set(key, value);
-      }
-    });
-    if (page > 1) {
-      params.set('page', String(page));
-    }
-    return params;
-  }, [filters, page]);
-
-  useEffect(() => {
-    setSearchParams(activeParams, { replace: true });
-  }, [activeParams, setSearchParams]);
+  function updateSearchParams(nextFilters, nextPage) {
+    setSearchParams(buildSearchParams(nextFilters, nextPage), { replace: true });
+  }
 
   function handleFilterChange(event) {
     const { name, value } = event.target;
-    setFilters((current) => ({ ...current, [name]: value }));
+    const nextFilters = { ...filters, [name]: value };
+    setFilters(nextFilters);
     setPage(1);
+    updateSearchParams(nextFilters, 1);
   }
 
   function resetFilters() {
     setFilters(initialFilters);
     setPage(1);
+    updateSearchParams(initialFilters, 1);
+  }
+
+  function goToPage(nextPage) {
+    setPage(nextPage);
+    updateSearchParams(filters, nextPage);
   }
 
   return (
@@ -227,7 +258,7 @@ export default function Products() {
                   type="button"
                   className="secondary-button"
                   disabled={!canGoPrevious}
-                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  onClick={() => goToPage(Math.max(1, page - 1))}
                 >
                   Previous
                 </button>
@@ -236,7 +267,7 @@ export default function Products() {
                   type="button"
                   className="secondary-button"
                   disabled={!canGoNext}
-                  onClick={() => setPage((current) => current + 1)}
+                  onClick={() => goToPage(page + 1)}
                 >
                   Next
                 </button>

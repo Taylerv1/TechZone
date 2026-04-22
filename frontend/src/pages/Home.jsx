@@ -8,6 +8,7 @@ import { getHeroImage, getProductImage } from '../utils/productImages.js';
 export default function Home() {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
+  const [categoryProducts, setCategoryProducts] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -16,17 +17,28 @@ export default function Home() {
 
     async function loadHomeData() {
       try {
-        const [categoryData, productData] = await Promise.all([
-          getCategories(),
+        const categoryData = await getCategories();
+        const [productData, categoryProductData] = await Promise.all([
           getProducts({ sort: 'newest' }),
+          Promise.all(
+            categoryData.map((category) => (
+              getProducts({ category: category.id, sort: 'newest' })
+            )),
+          ),
         ]);
 
         if (!isMounted) {
           return;
         }
 
+        const productsByCategory = {};
+        categoryData.forEach((category, index) => {
+          productsByCategory[category.id] = categoryProductData[index]?.results?.[0] || null;
+        });
+
         setCategories(categoryData);
         setProducts(productData.results || []);
+        setCategoryProducts(productsByCategory);
       } catch (err) {
         if (isMounted) {
           setError(err.message);
@@ -51,9 +63,9 @@ export default function Home() {
   }, [products]);
 
   const categoryHighlights = useMemo(() => categories.map((category) => {
-    const product = products.find((item) => item.category === category.id);
+    const product = categoryProducts[category.id];
     return { ...category, product };
-  }), [categories, products]);
+  }), [categories, categoryProducts]);
 
   const promoProducts = products.slice(0, 3);
   const heroImage = getHeroImage(products);
@@ -127,7 +139,7 @@ export default function Home() {
                       className="category-image"
                     />
                   )}
-                  {!category.product && <span>{index + 1}</span>}
+                  {!category.product && <span>{category.name.slice(0, 1).toUpperCase()}</span>}
                 </span>
                 <span>{category.name}</span>
                 <small>{category.products_count} products</small>
