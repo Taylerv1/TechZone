@@ -3,12 +3,49 @@ import { Link } from 'react-router-dom';
 
 import ProductCard from '../components/ProductCard.jsx';
 import { getCategories, getProducts } from '../api/client.js';
-import { getHeroImage, getProductImage } from '../utils/productImages.js';
+import { getProductImage } from '../utils/productImages.js';
+
+const categoryImages = {
+  headphones: '/categories/headphones.jpg',
+  laptops: '/categories/laptops.jpg',
+  lighting: '/categories/lighting.jpg',
+  phones: '/categories/phones.jpg',
+  smartwatches: '/categories/smartwatches.jpg',
+  speakers: '/categories/speakers.jpg',
+};
+
+const heroSlides = [
+  {
+    eyebrow: 'New electronics',
+    title: 'Best tech picks for 2026',
+    text: 'Find practical electronics, smart devices, and everyday accessories in one simple store.',
+    ctaLabel: 'Explore products',
+    ctaTo: '/products',
+  },
+  {
+    eyebrow: 'Fresh arrivals',
+    title: 'Upgrade your daily setup',
+    text: 'Browse laptops, phones, audio gear, lights, and watches selected for work and home.',
+    ctaLabel: 'Shop arrivals',
+    ctaTo: '/products?sort=newest',
+  },
+  {
+    eyebrow: 'Mock payment only',
+    title: 'Checkout safely in demo mode',
+    text: 'Add items to your cart, place a real order, and track it from your dashboard.',
+    ctaLabel: 'View cart',
+    ctaTo: '/cart',
+  },
+];
+
+function getCategoryImage(categoryName) {
+  return categoryImages[categoryName] || '';
+}
 
 export default function Home() {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
-  const [categoryProducts, setCategoryProducts] = useState({});
+  const [activeSlide, setActiveSlide] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -17,28 +54,17 @@ export default function Home() {
 
     async function loadHomeData() {
       try {
-        const categoryData = await getCategories();
-        const [productData, categoryProductData] = await Promise.all([
+        const [categoryData, productData] = await Promise.all([
+          getCategories(),
           getProducts({ sort: 'newest' }),
-          Promise.all(
-            categoryData.map((category) => (
-              getProducts({ category: category.id, sort: 'newest' })
-            )),
-          ),
         ]);
 
         if (!isMounted) {
           return;
         }
 
-        const productsByCategory = {};
-        categoryData.forEach((category, index) => {
-          productsByCategory[category.id] = categoryProductData[index]?.results?.[0] || null;
-        });
-
         setCategories(categoryData);
         setProducts(productData.results || []);
-        setCategoryProducts(productsByCategory);
       } catch (err) {
         if (isMounted) {
           setError(err.message);
@@ -62,29 +88,63 @@ export default function Home() {
     return (featured.length ? featured : products).slice(0, 8);
   }, [products]);
 
-  const categoryHighlights = useMemo(() => categories.map((category) => {
-    const product = categoryProducts[category.id];
-    return { ...category, product };
-  }), [categories, categoryProducts]);
-
   const promoProducts = products.slice(0, 3);
-  const heroImage = getHeroImage(products);
+  const currentSlide = heroSlides[activeSlide];
+
+  function showPreviousSlide() {
+    setActiveSlide((current) => (
+      current === 0 ? heroSlides.length - 1 : current - 1
+    ));
+  }
+
+  function showNextSlide() {
+    setActiveSlide((current) => (
+      current === heroSlides.length - 1 ? 0 : current + 1
+    ));
+  }
 
   return (
     <>
       <section
         className="hero"
-        style={{ backgroundImage: `url(${heroImage})` }}
+        style={{ backgroundImage: "url('/banner.png')" }}
       >
-        <div className="hero-content">
-          <p className="eyebrow light">New electronics</p>
-          <h1>Better tech for everyday life.</h1>
-          <p>
-            Shop practical devices, accessories, and smart essentials selected for daily use.
-          </p>
-          <Link to="/products" className="primary-button">
-            Explore products
+        <button
+          type="button"
+          className="hero-arrow hero-arrow-left"
+          aria-label="Previous banner"
+          onClick={showPreviousSlide}
+        >
+          ‹
+        </button>
+        <button
+          type="button"
+          className="hero-arrow hero-arrow-right"
+          aria-label="Next banner"
+          onClick={showNextSlide}
+        >
+          ›
+        </button>
+
+        <div className="hero-content" key={activeSlide}>
+          <p className="eyebrow light">{currentSlide.eyebrow}</p>
+          <h1>{currentSlide.title}</h1>
+          <p>{currentSlide.text}</p>
+          <Link to={currentSlide.ctaTo} className="primary-button">
+            {currentSlide.ctaLabel}
           </Link>
+        </div>
+
+        <div className="hero-indicators" aria-label="Banner slides">
+          {heroSlides.map((slide, index) => (
+            <button
+              key={slide.title}
+              type="button"
+              className={activeSlide === index ? 'hero-indicator active' : 'hero-indicator'}
+              aria-label={`Show ${slide.title}`}
+              onClick={() => setActiveSlide(index)}
+            />
+          ))}
         </div>
       </section>
 
@@ -125,21 +185,23 @@ export default function Home() {
         {error && <p className="error-message">{error}</p>}
         {!isLoading && !error && (
           <div className="category-row">
-            {categoryHighlights.map((category, index) => (
+            {categories.map((category) => (
               <Link
                 key={category.id}
                 to={`/products?category=${category.id}`}
                 className="category-pill"
               >
                 <span className="category-image-wrap">
-                  {category.product && (
+                  {getCategoryImage(category.name) && (
                     <img
-                      src={getProductImage(category.product, index)}
+                      src={getCategoryImage(category.name)}
                       alt={category.name}
                       className="category-image"
                     />
                   )}
-                  {!category.product && <span>{category.name.slice(0, 1).toUpperCase()}</span>}
+                  {!getCategoryImage(category.name) && (
+                    <span>{category.name.slice(0, 1).toUpperCase()}</span>
+                  )}
                 </span>
                 <span>{category.name}</span>
                 <small>{category.products_count} products</small>
