@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 import ProductCard from '../components/ProductCard.jsx';
 import { getCategories, getProducts } from '../api/client.js';
-import { getHeroImage } from '../utils/productImages.js';
+import { getHeroImage, getProductImage } from '../utils/productImages.js';
 
 export default function Home() {
   const [categories, setCategories] = useState([]);
@@ -47,9 +47,15 @@ export default function Home() {
 
   const featuredProducts = useMemo(() => {
     const featured = products.filter((product) => product.is_featured);
-    return (featured.length ? featured : products).slice(0, 4);
+    return (featured.length ? featured : products).slice(0, 8);
   }, [products]);
 
+  const categoryHighlights = useMemo(() => categories.map((category) => {
+    const product = products.find((item) => item.category === category.id);
+    return { ...category, product };
+  }), [categories, products]);
+
+  const promoProducts = products.slice(0, 3);
   const heroImage = getHeroImage(products);
 
   return (
@@ -59,14 +65,38 @@ export default function Home() {
         style={{ backgroundImage: `url(${heroImage})` }}
       >
         <div className="hero-content">
-          <p className="eyebrow">New electronics</p>
-          <h1>Better tech, ready today.</h1>
+          <p className="eyebrow light">New electronics</p>
+          <h1>Better tech for everyday life.</h1>
           <p>
-            Shop practical devices and accessories selected for daily use.
+            Shop practical devices, accessories, and smart essentials selected for daily use.
           </p>
           <Link to="/products" className="primary-button">
-            Shop products
+            Explore products
           </Link>
+        </div>
+      </section>
+
+      <section className="service-strip" aria-label="Store benefits">
+        <div className="service-item">
+          <span className="service-icon">OK</span>
+          <div>
+            <strong>Real orders</strong>
+            <small>Checkout creates saved orders.</small>
+          </div>
+        </div>
+        <div className="service-item">
+          <span className="service-icon">ST</span>
+          <div>
+            <strong>Stock checked</strong>
+            <small>Cart quantity follows inventory.</small>
+          </div>
+        </div>
+        <div className="service-item">
+          <span className="service-icon">$</span>
+          <div>
+            <strong>Mock payment</strong>
+            <small>No external payment gateway.</small>
+          </div>
         </div>
       </section>
 
@@ -83,12 +113,22 @@ export default function Home() {
         {error && <p className="error-message">{error}</p>}
         {!isLoading && !error && (
           <div className="category-row">
-            {categories.map((category) => (
+            {categoryHighlights.map((category, index) => (
               <Link
                 key={category.id}
                 to={`/products?category=${category.id}`}
                 className="category-pill"
               >
+                <span className="category-image-wrap">
+                  {category.product && (
+                    <img
+                      src={getProductImage(category.product, index)}
+                      alt={category.name}
+                      className="category-image"
+                    />
+                  )}
+                  {!category.product && <span>{index + 1}</span>}
+                </span>
                 <span>{category.name}</span>
                 <small>{category.products_count} products</small>
               </Link>
@@ -100,11 +140,30 @@ export default function Home() {
         )}
       </section>
 
+      {promoProducts.length > 0 && (
+        <section className="section promo-section">
+          <div className="promo-grid">
+            {promoProducts.map((product) => (
+              <Link
+                key={product.id}
+                to={`/products/${product.id}`}
+                className="promo-tile"
+              >
+                <img src={getProductImage(product)} alt={product.name} />
+                <span>{product.category_name}</span>
+                <strong>{product.name}</strong>
+                <small>Shop now</small>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="section">
         <div className="section-heading">
           <div>
             <p className="eyebrow">Featured products</p>
-            <h2>Fresh picks</h2>
+            <h2>Fresh arrivals</h2>
           </div>
           <Link to="/products" className="text-link">Browse catalog</Link>
         </div>

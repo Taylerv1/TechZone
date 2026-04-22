@@ -22,6 +22,9 @@ export default function ProductCard({ product, index }) {
             {isOutOfStock ? 'Out of stock' : `${product.stock} in stock`}
           </span>
         </div>
+        <Link to={`/products/${product.id}`} className="card-action">
+          View details
+        </Link>
       </div>
     </article>
   );
