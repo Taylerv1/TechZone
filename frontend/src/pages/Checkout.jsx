@@ -132,6 +132,17 @@ export default function Checkout() {
     return (
       <section className="checkout-page">
         <div className="success-panel">
+          <div className="success-visual" aria-hidden="true">
+            <span className="success-ring" />
+            <span className="success-check">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M5 12.5l4.2 4.2L19 7" />
+              </svg>
+            </span>
+            <span className="success-spark spark-one" />
+            <span className="success-spark spark-two" />
+            <span className="success-spark spark-three" />
+          </div>
           <p className="eyebrow">Order placed</p>
           <h1>Thank you for your order.</h1>
           <p className="muted">
