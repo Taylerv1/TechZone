@@ -5,6 +5,32 @@ import { getCategories } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 
+function CartIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 5h2l2 10h9.5l1.8-7H7.2" />
+      <path d="M9.5 19.2h.1M17 19.2h.1" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M20 15.2A8.2 8.2 0 0 1 8.8 4a7 7 0 1 0 11.2 11.2Z" />
+    </svg>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4" />
+    </svg>
+  );
+}
+
 export default function Layout() {
   const { isAuthenticated, logout, user } = useAuth();
   const { isLight, toggleTheme } = useTheme();
@@ -50,7 +76,6 @@ export default function Layout() {
             <NavLink to="/contact">Contact</NavLink>
             {isAuthenticated ? (
               <>
-                <NavLink to="/cart">Cart</NavLink>
                 <NavLink to="/account">Dashboard</NavLink>
                 <button type="button" className="nav-button" onClick={logout}>
                   Logout {user?.first_name || user?.username || ''}
@@ -62,15 +87,21 @@ export default function Layout() {
                 <NavLink to="/register">Register</NavLink>
               </>
             )}
-            <button
-              type="button"
-              className="theme-toggle"
-              onClick={toggleTheme}
-              aria-label={`Switch to ${isLight ? 'dark' : 'light'} mode`}
-            >
-              <span className="theme-toggle-mark" />
-              <span>{isLight ? 'Dark' : 'Light'}</span>
-            </button>
+            <div className="nav-icon-actions">
+              {isAuthenticated && (
+                <NavLink to="/cart" className="icon-nav-link" aria-label="Shopping cart">
+                  <CartIcon />
+                </NavLink>
+              )}
+              <button
+                type="button"
+                className="theme-toggle"
+                onClick={toggleTheme}
+                aria-label={`Switch to ${isLight ? 'dark' : 'light'} mode`}
+              >
+                {isLight ? <MoonIcon /> : <SunIcon />}
+              </button>
+            </div>
           </div>
         </nav>
         <nav className="category-nav" aria-label="Product categories">
