@@ -3,9 +3,11 @@ import { Link, NavLink, Outlet } from 'react-router-dom';
 
 import { getCategories } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useTheme } from '../context/ThemeContext.jsx';
 
 export default function Layout() {
   const { isAuthenticated, logout, user } = useAuth();
+  const { isLight, toggleTheme } = useTheme();
   const [categories, setCategories] = useState([]);
 
   useEffect(() => {
@@ -60,6 +62,15 @@ export default function Layout() {
                 <NavLink to="/register">Register</NavLink>
               </>
             )}
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${isLight ? 'dark' : 'light'} mode`}
+            >
+              <span className="theme-toggle-mark" />
+              <span>{isLight ? 'Dark' : 'Light'}</span>
+            </button>
           </div>
         </nav>
         <nav className="category-nav" aria-label="Product categories">
