@@ -1,9 +1,28 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
-const accent = 0x656565;
-const accentLight = 0xc0ff6b;
-const ink = 0x000000;
+const THEME_KEY = 'site_theme';
+const SCENE_PALETTES = {
+  dark: {
+    main: 0x656565,
+    accent: 0xc0ff6b,
+    dark: 0x000000,
+    edge: 0xffffff,
+    glass: 0xd5d5d5,
+  },
+  light: {
+    main: 0x656565,
+    accent: 0x5378e8,
+    dark: 0x1c2733,
+    edge: 0x5378e8,
+    glass: 0xd5d5d5,
+  },
+};
+
+function getScenePalette() {
+  const theme = document.body.dataset.theme || localStorage.getItem(THEME_KEY);
+  return theme === 'light' ? SCENE_PALETTES.light : SCENE_PALETTES.dark;
+}
 
 function createBox(width, height, depth, material, position) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
@@ -42,28 +61,30 @@ export default function AuthScene() {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(renderer.domElement);
 
+    const palette = getScenePalette();
+
     const mainMaterial = new THREE.MeshStandardMaterial({
-      color: accent,
+      color: palette.main,
       metalness: 0.12,
       roughness: 0.38,
     });
     const lightMaterial = new THREE.MeshStandardMaterial({
-      color: accentLight,
+      color: palette.accent,
       metalness: 0.08,
       roughness: 0.32,
     });
     const darkMaterial = new THREE.MeshStandardMaterial({
-      color: ink,
+      color: palette.dark,
       metalness: 0.18,
       roughness: 0.42,
     });
     const whiteMaterial = new THREE.MeshStandardMaterial({
-      color: 0xd5d5d5,
+      color: palette.glass,
       metalness: 0.05,
       roughness: 0.45,
     });
     const glassMaterial = new THREE.MeshStandardMaterial({
-      color: 0xd5d5d5,
+      color: palette.glass,
       transparent: true,
       opacity: 0.72,
       metalness: 0,
@@ -76,7 +97,7 @@ export default function AuthScene() {
     keyLight.position.set(-3, 5, 6);
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(accentLight, 1.4);
+    const rimLight = new THREE.DirectionalLight(palette.accent, 1.4);
     rimLight.position.set(4, 2, -2);
     scene.add(rimLight);
 
@@ -130,12 +151,12 @@ export default function AuthScene() {
     ].forEach((parcel, index) => {
       const box = createBox(parcel.s, parcel.s, parcel.s, parcel.material, parcel);
       box.rotation.set(0.25, 0.35 + index * 0.25, 0.18);
-      addEdges(box, index % 2 === 0 ? accent : 0xffffff, 0.54);
+      addEdges(box, index % 2 === 0 ? palette.main : palette.edge, 0.54);
       parcelGroup.add(box);
     });
 
     const routeMaterial = new THREE.LineBasicMaterial({
-      color: accentLight,
+      color: palette.accent,
       transparent: true,
       opacity: 0.55,
     });
@@ -160,7 +181,7 @@ export default function AuthScene() {
 
     const halo = new THREE.Mesh(
       new THREE.TorusGeometry(2.55, 0.012, 10, 96),
-      new THREE.MeshBasicMaterial({ color: accentLight, transparent: true, opacity: 0.22 })
+      new THREE.MeshBasicMaterial({ color: palette.accent, transparent: true, opacity: 0.22 })
     );
     halo.position.set(0.15, -0.08, -0.5);
     halo.scale.set(1.25, 0.55, 1);
