@@ -1,6 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-import { getProfile, loginUser, logoutUser, registerUser } from '../api/client.js';
+import {
+  configureAuthSession,
+  getProfile,
+  loginUser,
+  logoutUser,
+  registerUser,
+} from '../api/client.js';
 
 const AuthContext = createContext(null);
 const ACCESS_TOKEN_KEY = 'access_token';
@@ -12,6 +18,33 @@ export function AuthProvider({ children }) {
   ));
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(Boolean(accessToken));
+
+  function applyTokens(tokens) {
+    if (tokens.access) {
+      localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access);
+      setAccessToken(tokens.access);
+    }
+
+    if (tokens.refresh) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh);
+    }
+  }
+
+  function clearSession() {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    setAccessToken('');
+    setUser(null);
+  }
+
+  useEffect(() => {
+    configureAuthSession({
+      getAccessToken: () => localStorage.getItem(ACCESS_TOKEN_KEY) || '',
+      getRefreshToken: () => localStorage.getItem(REFRESH_TOKEN_KEY) || '',
+      updateTokens: applyTokens,
+      clearSession,
+    });
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -29,11 +62,8 @@ export function AuthProvider({ children }) {
           setUser(profile);
         }
       } catch {
-        localStorage.removeItem(ACCESS_TOKEN_KEY);
-        localStorage.removeItem(REFRESH_TOKEN_KEY);
         if (isMounted) {
-          setAccessToken('');
-          setUser(null);
+          clearSession();
         }
       } finally {
         if (isMounted) {
@@ -49,18 +79,9 @@ export function AuthProvider({ children }) {
     };
   }, [accessToken]);
 
-  function clearSession() {
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-    setAccessToken('');
-    setUser(null);
-  }
-
   async function login(credentials) {
     const tokens = await loginUser(credentials);
-    localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access);
-    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh);
-    setAccessToken(tokens.access);
+    applyTokens(tokens);
     const profile = await getProfile(tokens.access);
     setUser(profile);
   }

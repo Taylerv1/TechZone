@@ -1,5 +1,21 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
+const authSession = {
+  getAccessToken: () => '',
+  getRefreshToken: () => '',
+  updateTokens: () => {},
+  clearSession: () => {},
+};
+
+let refreshRequest = null;
+
+export function configureAuthSession(handlers) {
+  authSession.getAccessToken = handlers.getAccessToken;
+  authSession.getRefreshToken = handlers.getRefreshToken;
+  authSession.updateTokens = handlers.updateTokens;
+  authSession.clearSession = handlers.clearSession;
+}
+
 function buildErrorMessage(data) {
   if (!data) {
     return 'Request failed. Please try again.';
@@ -28,14 +44,16 @@ function buildErrorMessage(data) {
 }
 
 async function request(path, options = {}) {
-  const { token, ...fetchOptions } = options;
+  const { token, skipAuthRetry = false, ...fetchOptions } = options;
   const headers = {
     'Content-Type': 'application/json',
     ...fetchOptions.headers,
   };
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
+  const resolvedToken = token ?? authSession.getAccessToken();
+
+  if (resolvedToken) {
+    headers.Authorization = `Bearer ${resolvedToken}`;
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -48,11 +66,69 @@ async function request(path, options = {}) {
     ? await response.json()
     : null;
 
+  if (response.status === 401 && !skipAuthRetry) {
+    const nextAccessToken = await refreshAccessToken();
+
+    if (nextAccessToken) {
+      return request(path, {
+        ...options,
+        token: nextAccessToken,
+        skipAuthRetry: true,
+      });
+    }
+  }
+
   if (!response.ok) {
     throw new Error(buildErrorMessage(data));
   }
 
   return data;
+}
+
+async function refreshAccessToken() {
+  const refreshToken = authSession.getRefreshToken();
+
+  if (!refreshToken) {
+    authSession.clearSession();
+    return null;
+  }
+
+  if (!refreshRequest) {
+    refreshRequest = (async () => {
+      const response = await fetch(`${API_BASE_URL}/auth/refresh/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh: refreshToken }),
+      });
+
+      const contentType = response.headers.get('content-type') || '';
+      const data = contentType.includes('application/json')
+        ? await response.json()
+        : null;
+
+      if (!response.ok) {
+        authSession.clearSession();
+        throw new Error(buildErrorMessage(data));
+      }
+
+      authSession.updateTokens({
+        access: data.access,
+        refresh: data.refresh ?? refreshToken,
+      });
+
+      return data.access;
+    })().finally(() => {
+      refreshRequest = null;
+    });
+  }
+
+  try {
+    return await refreshRequest;
+  } catch {
+    return null;
+  }
 }
 
 export function getCategories() {
@@ -87,6 +163,7 @@ export function loginUser(payload) {
   return request('/auth/login/', {
     method: 'POST',
     body: JSON.stringify(payload),
+    skipAuthRetry: true,
   });
 }
 
@@ -95,6 +172,7 @@ export function logoutUser(token, payload) {
     method: 'POST',
     token,
     body: JSON.stringify(payload),
+    skipAuthRetry: true,
   });
 }
 
