@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-import { getProfile, loginUser, registerUser } from '../api/client.js';
+import { getProfile, loginUser, logoutUser, registerUser } from '../api/client.js';
 
 const AuthContext = createContext(null);
 const ACCESS_TOKEN_KEY = 'access_token';
@@ -49,6 +49,13 @@ export function AuthProvider({ children }) {
     };
   }, [accessToken]);
 
+  function clearSession() {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    setAccessToken('');
+    setUser(null);
+  }
+
   async function login(credentials) {
     const tokens = await loginUser(credentials);
     localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access);
@@ -66,11 +73,18 @@ export function AuthProvider({ children }) {
     });
   }
 
-  function logout() {
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-    setAccessToken('');
-    setUser(null);
+  async function logout() {
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+
+    try {
+      if (accessToken && refreshToken) {
+        await logoutUser(accessToken, { refresh: refreshToken });
+      }
+    } catch {
+      // Clear the local session even if the backend token is already expired.
+    } finally {
+      clearSession();
+    }
   }
 
   async function refreshProfile() {

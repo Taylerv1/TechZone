@@ -90,6 +90,28 @@ export function loginUser(payload) {
   });
 }
 
+export function logoutUser(token, payload) {
+  return request('/auth/logout/', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
+  });
+}
+
+export function requestPasswordReset(payload) {
+  return request('/auth/password-reset/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function confirmPasswordReset(payload) {
+  return request('/auth/password-reset-confirm/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export function getProfile(token) {
   return request('/profile/', { token });
 }

@@ -11,6 +11,7 @@ export default function Login() {
   const [form, setForm] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const successMessage = location.state?.message || '';
 
   if (isAuthenticated) {
     return <Navigate to="/account" replace />;
@@ -71,11 +72,15 @@ export default function Login() {
           </label>
 
           {error && <p className="error-message">{error}</p>}
+          {successMessage && <p className="success-message">{successMessage}</p>}
 
           <button type="submit" className="primary-button" disabled={isSubmitting}>
             {isSubmitting ? 'Logging in...' : 'Login'}
           </button>
         </form>
+        <p className="muted auth-helper-row">
+          Forgot your password? <Link to="/forgot-password" className="text-link">Reset it</Link>
+        </p>
         <p className="muted">
           New here? <Link to="/register" className="text-link">Create an account</Link>
         </p>

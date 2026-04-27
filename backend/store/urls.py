@@ -10,8 +10,12 @@ from .views import (
     CategoryListView,
     CheckoutView,
     ContactMessageCreateView,
+    HealthCheckView,
+    LogoutView,
     OrderDetailView,
     OrderListView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
     ProductDetailView,
     ProductListView,
     ProfileView,
@@ -19,8 +23,16 @@ from .views import (
 )
 
 urlpatterns = [
+    path('health/', HealthCheckView.as_view(), name='health-check'),
     path('auth/register/', RegisterView.as_view(), name='auth-register'),
     path('auth/login/', TokenObtainPairView.as_view(), name='auth-login'),
+    path('auth/logout/', LogoutView.as_view(), name='auth-logout'),
+    path('auth/password-reset/', PasswordResetRequestView.as_view(), name='auth-password-reset'),
+    path(
+        'auth/password-reset-confirm/',
+        PasswordResetConfirmView.as_view(),
+        name='auth-password-reset-confirm',
+    ),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('addresses/', AddressListCreateView.as_view(), name='address-list'),
     path('addresses/<int:pk>/', AddressDetailView.as_view(), name='address-detail'),

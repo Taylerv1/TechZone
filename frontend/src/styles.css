@@ -1497,6 +1497,15 @@ img {
   min-height: 44px;
 }
 
+.auth-panel .error-message,
+.auth-panel .success-message {
+  margin: 0;
+}
+
+.auth-helper-row {
+  margin-top: 12px;
+}
+
 .auth-panel .muted {
   margin-top: 18px;
 }
@@ -1945,12 +1954,17 @@ body[data-theme='light'] .site-footer {
 body[data-theme='light'] .site-footer .footer-brand,
 body[data-theme='light'] .site-footer .footer-column strong,
 body[data-theme='light'] .site-footer .footer-promo strong {
-  color: #f5f7f6;
+  color: #ffffff;
 }
 
 body[data-theme='light'] .site-footer .footer-link,
 body[data-theme='light'] .site-footer p {
-  color: #d5d5d5;
+  color: #edf2ff;
+}
+
+body[data-theme='light'] .site-footer .footer-promo p,
+body[data-theme='light'] .site-footer .footer-bottom {
+  color: #dbe5ff;
 }
 
 body[data-theme='light'] .site-footer .footer-social a {

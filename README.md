@@ -84,6 +84,59 @@ Frontend URL:
 http://127.0.0.1:5173/
 ```
 
+## Deployment Overview
+
+Recommended production setup:
+
+- Frontend: Netlify
+- Backend: Railway
+
+### Backend on Railway
+
+Project service settings:
+
+- Source directory / root directory: `backend`
+- Start command: picked up from `backend/railway.toml` or set to `python railway_start.py`
+- Volume mount path: `/data`
+
+Backend environment variables:
+
+```text
+DEBUG=False
+SECRET_KEY=replace-with-a-long-random-secret-key
+APP_DATA_DIR=/data
+ALLOWED_HOSTS=your-backend-domain.up.railway.app
+CORS_ALLOWED_ORIGINS=https://your-frontend-domain.netlify.app
+CSRF_TRUSTED_ORIGINS=https://your-frontend-domain.netlify.app,https://your-backend-domain.up.railway.app
+FRONTEND_URL=https://your-frontend-domain.netlify.app
+```
+
+Health check:
+
+```text
+GET /api/health/
+```
+
+### Frontend on Netlify
+
+Netlify build settings:
+
+- Base directory: `frontend`
+- Build command: `npm run build`
+- Publish directory: `dist`
+
+Frontend environment variables:
+
+```text
+VITE_API_BASE_URL=https://your-backend-domain.up.railway.app/api
+```
+
+SPA routing is already handled by:
+
+```text
+frontend/public/_redirects
+```
+
 ## Main API Endpoints
 
 Products:
