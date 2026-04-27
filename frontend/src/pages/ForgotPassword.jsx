@@ -35,7 +35,7 @@ export default function ForgotPassword() {
         <div className="auth-copy">
           <h1>Reset password</h1>
           <p className="muted">
-            Enter your account email and we will send you a reset link in the backend console.
+            Enter your account email and we will send you a reset link.
           </p>
         </div>
         <form className="form-grid" onSubmit={handleSubmit}>

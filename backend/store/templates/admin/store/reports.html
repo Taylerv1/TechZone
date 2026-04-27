@@ -176,5 +176,31 @@
       <div class="empty-report">No sold products yet.</div>
     {% endif %}
   </div>
+
+  <div class="report-section">
+    <h2>Low stock alerts</h2>
+    {% if low_stock_products %}
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Category</th>
+            <th>Stock</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for product in low_stock_products %}
+            <tr>
+              <td>{{ product.name }}</td>
+              <td>{{ product.category.name }}</td>
+              <td>{{ product.stock }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-report">No low stock products.</div>
+    {% endif %}
+  </div>
 </div>
 {% endblock %}

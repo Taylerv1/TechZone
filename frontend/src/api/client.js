@@ -112,6 +112,13 @@ export function confirmPasswordReset(payload) {
   });
 }
 
+export function confirmEmail(payload) {
+  return request('/auth/confirm-email/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export function getProfile(token) {
   return request('/profile/', { token });
 }
@@ -155,6 +162,25 @@ export function getOrders(token) {
   return request('/orders/', { token });
 }
 
+export function getWishlist(token) {
+  return request('/wishlist/', { token });
+}
+
+export function createWishlistItem(token, payload) {
+  return request('/wishlist/', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteWishlistItem(token, id) {
+  return request(`/wishlist/${id}/`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
 export function getCart(token) {
   return request('/cart/', { token });
 }
@@ -184,6 +210,26 @@ export function deleteCartItem(token, id) {
 
 export function checkoutOrder(token, payload) {
   return request('/orders/checkout/', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
+  });
+}
+
+export function validateCoupon(token, payload) {
+  return request('/coupons/validate/', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getProductReviews(productId) {
+  return request(`/products/${productId}/reviews/`);
+}
+
+export function createProductReview(token, productId, payload) {
+  return request(`/products/${productId}/reviews/`, {
     method: 'POST',
     token,
     body: JSON.stringify(payload),

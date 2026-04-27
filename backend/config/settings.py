@@ -40,14 +40,10 @@ SECRET_KEY = os.environ.get('SECRET_KEY', DEFAULT_SECRET_KEY)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_flag('DEBUG', default=True)
 
-RAILWAY_PUBLIC_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '').strip()
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173').rstrip('/')
 
 default_allowed_hosts = 'localhost,127.0.0.1'
 ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', default_allowed_hosts)
-
-if RAILWAY_PUBLIC_DOMAIN and RAILWAY_PUBLIC_DOMAIN not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN)
 
 
 # Application definition
@@ -100,11 +96,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATA_ROOT = Path(
-    os.environ.get('APP_DATA_DIR')
-    or os.environ.get('RAILWAY_VOLUME_MOUNT_PATH')
-    or BASE_DIR
-)
+DATA_ROOT = Path(os.environ.get('APP_DATA_DIR') or BASE_DIR)
 DATA_ROOT.mkdir(parents=True, exist_ok=True)
 
 DATABASES = {
@@ -167,6 +159,7 @@ MEDIA_ROOT = DATA_ROOT / 'media'
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_SSL_REDIRECT = env_flag('SECURE_SSL_REDIRECT', default=not DEBUG)
+SECURE_REDIRECT_EXEMPT = [r'^api/health/$']
 SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
 SECURE_HSTS_PRELOAD = not DEBUG
@@ -175,11 +168,6 @@ CSRF_COOKIE_SECURE = not DEBUG
 
 CORS_ALLOWED_ORIGINS = env_list('CORS_ALLOWED_ORIGINS', FRONTEND_URL)
 CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS', FRONTEND_URL)
-
-if RAILWAY_PUBLIC_DOMAIN:
-    backend_public_url = f'https://{RAILWAY_PUBLIC_DOMAIN}'
-    if backend_public_url not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(backend_public_url)
 
 EMAIL_BACKEND = os.environ.get(
     'EMAIL_BACKEND',

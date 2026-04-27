@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { checkoutOrder, getAddresses, getCart } from '../api/client.js';
+import {
+  checkoutOrder,
+  getAddresses,
+  getCart,
+  validateCoupon,
+} from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 const emptyShipping = {
@@ -20,9 +25,13 @@ export default function Checkout() {
   const [cart, setCart] = useState(null);
   const [addresses, setAddresses] = useState([]);
   const [shipping, setShipping] = useState(emptyShipping);
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponMessage, setCouponMessage] = useState('');
   const [createdOrder, setCreatedOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCouponChecking, setIsCouponChecking] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -82,6 +91,11 @@ export default function Checkout() {
 
   const items = cart?.items || [];
   const hasItems = items.length > 0;
+  const subtotal = Number(cart?.total_price || 0);
+  const discountAmount = Number(appliedCoupon?.discount_amount || 0);
+  const finalTotal = appliedCoupon
+    ? Number(appliedCoupon.total_price || 0)
+    : subtotal;
 
   const addressOptions = useMemo(() => addresses.map((address) => ({
     id: address.id,
@@ -112,15 +126,48 @@ export default function Checkout() {
     });
   }
 
+  async function handleApplyCoupon() {
+    const code = couponCode.trim();
+    setError('');
+    setCouponMessage('');
+
+    if (!code) {
+      setAppliedCoupon(null);
+      setCouponMessage('Coupon removed.');
+      return;
+    }
+
+    setIsCouponChecking(true);
+
+    try {
+      const coupon = await validateCoupon(accessToken, { code });
+      setAppliedCoupon(coupon);
+      setCouponCode(coupon.code);
+      setCouponMessage('Coupon applied.');
+    } catch (err) {
+      setAppliedCoupon(null);
+      setCouponMessage('');
+      setError(err.message);
+    } finally {
+      setIsCouponChecking(false);
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     setIsSubmitting(true);
     setError('');
 
     try {
-      const order = await checkoutOrder(accessToken, shipping);
+      const order = await checkoutOrder(accessToken, {
+        ...shipping,
+        coupon_code: appliedCoupon?.code || couponCode.trim(),
+      });
       setCreatedOrder(order);
       setCart({ ...cart, items: [], total_price: '0.00' });
+      setAppliedCoupon(null);
+      setCouponCode('');
+      setCouponMessage('');
       window.dispatchEvent(new Event('cart-updated'));
     } catch (err) {
       setError(err.message);
@@ -149,6 +196,12 @@ export default function Checkout() {
           <p className="muted">
             Order #{createdOrder.id} was placed successfully.
           </p>
+          {Number(createdOrder.discount_amount) > 0 && (
+            <div className="summary-row">
+              <span>Discount</span>
+              <strong>-${createdOrder.discount_amount}</strong>
+            </div>
+          )}
           <div className="summary-row">
             <span>Total</span>
             <strong>${createdOrder.total_price}</strong>
@@ -273,6 +326,32 @@ export default function Checkout() {
               </label>
             </div>
 
+            <div className="coupon-panel">
+              <label>
+                Coupon code
+                <div className="coupon-row">
+                  <input
+                    value={couponCode}
+                    onChange={(event) => {
+                      setCouponCode(event.target.value);
+                      setAppliedCoupon(null);
+                      setCouponMessage('');
+                    }}
+                    placeholder="Enter coupon code"
+                  />
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={isCouponChecking}
+                    onClick={handleApplyCoupon}
+                  >
+                    {isCouponChecking ? 'Checking...' : 'Apply'}
+                  </button>
+                </div>
+              </label>
+              {couponMessage && <p className="success-message">{couponMessage}</p>}
+            </div>
+
             <button type="submit" className="primary-button" disabled={isSubmitting}>
               {isSubmitting ? 'Placing order...' : 'Place order'}
             </button>
@@ -286,9 +365,15 @@ export default function Checkout() {
                 <strong>${item.item_total}</strong>
               </div>
             ))}
+            {appliedCoupon && (
+              <div className="summary-row">
+                <span>Discount ({appliedCoupon.code})</span>
+                <strong>-${appliedCoupon.discount_amount}</strong>
+              </div>
+            )}
             <div className="summary-row">
               <span>Total</span>
-              <strong>${cart.total_price}</strong>
+              <strong>${finalTotal.toFixed(2)}</strong>
             </div>
           </aside>
         </div>

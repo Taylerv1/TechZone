@@ -49,7 +49,7 @@ export default function Login() {
         </div>
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>
-            Username
+            Username or email
             <input
               name="username"
               value={form.username}

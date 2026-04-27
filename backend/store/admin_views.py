@@ -5,7 +5,7 @@ from django.db.models import Count, Sum
 from django.db.models.functions import TruncDate
 from django.template.response import TemplateResponse
 
-from .models import Order, OrderItem
+from .models import Order, OrderItem, Product
 
 
 def store_reports_view(request):
@@ -32,6 +32,7 @@ def store_reports_view(request):
         )
         .order_by('-quantity_sold', '-revenue')[:10]
     )
+    low_stock_products = Product.objects.filter(stock__lte=5).order_by('stock', 'name')[:10]
 
     context = {
         **admin.site.each_context(request),
@@ -42,5 +43,6 @@ def store_reports_view(request):
         'average_order_value': average_order_value,
         'revenue_by_day': revenue_by_day,
         'top_products': top_products,
+        'low_stock_products': low_stock_products,
     }
     return TemplateResponse(request, 'admin/store/reports.html', context)

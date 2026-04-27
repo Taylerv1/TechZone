@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import ProductCard from '../components/ProductCard.jsx';
-import { getCategories, getProducts } from '../api/client.js';
+import { getCategories, getProducts, getWishlist } from '../api/client.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import { getProductImage } from '../utils/productImages.js';
 
 const categoryImages = {
@@ -25,7 +26,7 @@ const heroSlides = [
   {
     eyebrow: 'Customer dashboard',
     title: 'Manage your shopping in one place',
-    text: 'Save addresses, review loved products, and follow your order history from your dashboard.',
+    text: 'Save addresses, manage your wishlist, and follow your order history from your dashboard.',
     ctaLabel: 'Open dashboard',
     ctaTo: '/account',
   },
@@ -74,9 +75,11 @@ function TrackingIcon() {
 }
 
 export default function Home() {
+  const { accessToken, isAuthenticated } = useAuth();
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [wishlistItems, setWishlistItems] = useState([]);
   const [activeSlide, setActiveSlide] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -122,8 +125,29 @@ export default function Home() {
     };
   }, []);
 
+  async function loadWishlist() {
+    if (!isAuthenticated || !accessToken) {
+      setWishlistItems([]);
+      return;
+    }
+
+    try {
+      const data = await getWishlist(accessToken);
+      setWishlistItems(data.results || data);
+    } catch {
+      setWishlistItems([]);
+    }
+  }
+
+  useEffect(() => {
+    loadWishlist();
+  }, [accessToken, isAuthenticated]);
+
   const promoProducts = products.slice(0, 3);
   const currentSlide = heroSlides[activeSlide];
+  const wishlistByProductId = new Map(
+    wishlistItems.map((item) => [item.product.id, item])
+  );
 
   function showPreviousSlide() {
     setActiveSlide((current) => (
@@ -286,7 +310,13 @@ export default function Home() {
         {!isLoading && !error && (
           <div className="product-grid">
             {featuredProducts.map((product, index) => (
-              <ProductCard key={product.id} product={product} index={index} />
+              <ProductCard
+                key={product.id}
+                product={product}
+                index={index}
+                wishlistItem={wishlistByProductId.get(product.id)}
+                onWishlistChanged={loadWishlist}
+              />
             ))}
             {featuredProducts.length === 0 && (
               <p className="muted">No products available yet.</p>

@@ -1,11 +1,16 @@
+from decimal import Decimal
+
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Avg
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import (
     Address,
@@ -13,10 +18,13 @@ from .models import (
     CartItem,
     Category,
     ContactMessage,
+    Coupon,
     Order,
     OrderItem,
     Product,
     ProductImage,
+    Review,
+    WishlistItem,
 )
 
 
@@ -27,6 +35,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email', 'password', 'first_name', 'last_name']
         read_only_fields = ['id']
+        extra_kwargs = {'email': {'required': True, 'allow_blank': False}}
 
     def validate_email(self, value):
         if value and User.objects.filter(email=value).exists():
@@ -34,7 +43,23 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
+        user = User.objects.create_user(**validated_data)
+        user.is_active = False
+        user.save(update_fields=['is_active'])
+        return user
+
+
+class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        login_value = attrs.get(self.username_field, '').strip()
+
+        if '@' in login_value:
+            user_model = get_user_model()
+            user = user_model.objects.filter(email__iexact=login_value).first()
+            if user:
+                attrs[self.username_field] = getattr(user, self.username_field)
+
+        return super().validate(attrs)
 
 
 class LogoutSerializer(serializers.Serializer):
@@ -79,6 +104,33 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         user = self.context['user']
         user.set_password(self.validated_data['password'])
         user.save(update_fields=['password'])
+        return user
+
+
+class EmailConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+
+    def validate(self, attrs):
+        try:
+            uid = force_str(urlsafe_base64_decode(attrs['uid']))
+            user = User.objects.get(pk=uid)
+        except (User.DoesNotExist, ValueError, TypeError, OverflowError) as exc:
+            raise serializers.ValidationError({'uid': 'Invalid confirmation link.'}) from exc
+
+        if not default_token_generator.check_token(user, attrs['token']):
+            raise serializers.ValidationError(
+                {'token': 'Confirmation link is invalid or expired.'}
+            )
+
+        self.context['user'] = user
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.context['user']
+        if not user.is_active:
+            user.is_active = True
+            user.save(update_fields=['is_active'])
         return user
 
 
@@ -134,6 +186,8 @@ class ProductImageSerializer(serializers.ModelSerializer):
 class ProductListSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     primary_image = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
+    reviews_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -146,6 +200,8 @@ class ProductListSerializer(serializers.ModelSerializer):
             'stock',
             'is_featured',
             'primary_image',
+            'average_rating',
+            'reviews_count',
             'created_at',
             'updated_at',
         ]
@@ -161,10 +217,19 @@ class ProductListSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(image_url)
         return image_url
 
+    def get_average_rating(self, obj):
+        average = obj.reviews.aggregate(value=Avg('rating'))['value']
+        return round(average, 1) if average else None
+
+    def get_reviews_count(self, obj):
+        return obj.reviews.count()
+
 
 class ProductDetailSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
+    average_rating = serializers.SerializerMethodField()
+    reviews_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -178,9 +243,112 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'stock',
             'is_featured',
             'images',
+            'average_rating',
+            'reviews_count',
             'created_at',
             'updated_at',
         ]
+
+    def get_average_rating(self, obj):
+        average = obj.reviews.aggregate(value=Avg('rating'))['value']
+        return round(average, 1) if average else None
+
+    def get_reviews_count(self, obj):
+        return obj.reviews.count()
+
+
+class WishlistItemSerializer(serializers.ModelSerializer):
+    product = ProductListSerializer(read_only=True)
+
+    class Meta:
+        model = WishlistItem
+        fields = ['id', 'product', 'created_at']
+        read_only_fields = fields
+
+
+class WishlistItemCreateSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+
+    def validate_product_id(self, value):
+        try:
+            product = Product.objects.get(id=value, is_active=True)
+        except Product.DoesNotExist as exc:
+            raise serializers.ValidationError('Product not found.') from exc
+
+        self.context['product'] = product
+        return value
+
+    def save(self, **kwargs):
+        return WishlistItem.objects.get_or_create(
+            user=self.context['request'].user,
+            product=self.context['product'],
+        )[0]
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta:
+        model = Review
+        fields = ['id', 'user_name', 'rating', 'comment', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user_name', 'created_at', 'updated_at']
+
+    def validate(self, attrs):
+        request = self.context['request']
+        product = self.context['product']
+
+        if self.instance is None and Review.objects.filter(
+            user=request.user,
+            product=product,
+        ).exists():
+            raise serializers.ValidationError('You already reviewed this product.')
+
+        return attrs
+
+    def create(self, validated_data):
+        return Review.objects.create(
+            user=self.context['request'].user,
+            product=self.context['product'],
+            **validated_data,
+        )
+
+
+def calculate_coupon_discount(coupon, subtotal):
+    if coupon.discount_type == Coupon.DiscountType.PERCENTAGE:
+        discount = subtotal * coupon.value / Decimal('100')
+    else:
+        discount = coupon.value
+
+    return min(discount, subtotal).quantize(Decimal('0.01'))
+
+
+class CouponValidateSerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=30)
+
+    def validate_code(self, value):
+        try:
+            coupon = Coupon.objects.get(code__iexact=value.strip(), is_active=True)
+        except Coupon.DoesNotExist as exc:
+            raise serializers.ValidationError('Coupon is invalid or inactive.') from exc
+
+        self.context['coupon'] = coupon
+        return coupon.code
+
+    def validate(self, attrs):
+        cart = self.context['cart']
+        items = list(cart.items.select_related('product'))
+
+        if not items:
+            raise serializers.ValidationError('Cart is empty.')
+
+        subtotal = sum(item.product.price * item.quantity for item in items)
+        coupon = self.context['coupon']
+        discount_amount = calculate_coupon_discount(coupon, subtotal)
+
+        attrs['subtotal_price'] = subtotal
+        attrs['discount_amount'] = discount_amount
+        attrs['total_price'] = subtotal - discount_amount
+        return attrs
 
 
 class CartItemSerializer(serializers.ModelSerializer):
@@ -287,6 +455,8 @@ class OrderSerializer(serializers.ModelSerializer):
             'state',
             'postal_code',
             'country',
+            'coupon_code',
+            'discount_amount',
             'total_price',
             'items',
             'created_at',
@@ -304,6 +474,7 @@ class CheckoutSerializer(serializers.Serializer):
     postal_code = serializers.CharField(max_length=30)
     country = serializers.CharField(max_length=100)
     payment_method = serializers.CharField(max_length=50, required=False, default='mock')
+    coupon_code = serializers.CharField(max_length=30, required=False, allow_blank=True)
 
     def validate_payment_method(self, value):
         if value != 'mock':
@@ -327,6 +498,18 @@ class CheckoutSerializer(serializers.Serializer):
                         )
                     }
                 )
+
+        coupon_code = attrs.get('coupon_code', '').strip()
+        if coupon_code:
+            try:
+                attrs['coupon'] = Coupon.objects.get(
+                    code__iexact=coupon_code,
+                    is_active=True,
+                )
+            except Coupon.DoesNotExist as exc:
+                raise serializers.ValidationError(
+                    {'coupon_code': 'Coupon is invalid or inactive.'}
+                ) from exc
 
         return attrs
 
@@ -357,10 +540,16 @@ class CheckoutSerializer(serializers.Serializer):
                     }
                 )
 
-        total_price = sum(
+        subtotal_price = sum(
             products[item.product_id].price * item.quantity
             for item in items
         )
+        coupon = self.validated_data.get('coupon')
+        discount_amount = (
+            calculate_coupon_discount(coupon, subtotal_price)
+            if coupon else Decimal('0.00')
+        )
+        total_price = subtotal_price - discount_amount
 
         order = Order.objects.create(
             user=user,
@@ -373,6 +562,8 @@ class CheckoutSerializer(serializers.Serializer):
             postal_code=self.validated_data['postal_code'],
             country=self.validated_data['country'],
             payment_method=self.validated_data.get('payment_method', 'mock'),
+            coupon_code=coupon.code if coupon else '',
+            discount_amount=discount_amount,
             total_price=total_price,
         )
 

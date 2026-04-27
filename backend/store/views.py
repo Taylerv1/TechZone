@@ -1,10 +1,12 @@
 from django.conf import settings
+from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.db.models import Q
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
+from rest_framework import status
 from rest_framework.generics import (
     CreateAPIView,
     ListAPIView,
@@ -17,8 +19,9 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import Address, Cart, CartItem, Category, Product
+from .models import Address, Cart, CartItem, Category, Product, Review, WishlistItem
 from .serializers import (
     AddressSerializer,
     CartItemCreateSerializer,
@@ -27,15 +30,21 @@ from .serializers import (
     CartSerializer,
     CategorySerializer,
     CheckoutSerializer,
+    CouponValidateSerializer,
     ContactMessageSerializer,
+    EmailConfirmSerializer,
     LogoutSerializer,
     OrderSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    EmailOrUsernameTokenObtainPairSerializer,
     ProductDetailSerializer,
     ProductListSerializer,
     ProfileSerializer,
     RegisterSerializer,
+    ReviewSerializer,
+    WishlistItemCreateSerializer,
+    WishlistItemSerializer,
 )
 
 
@@ -52,10 +61,38 @@ class HealthCheckView(APIView):
         return Response({'status': 'ok', 'service': 'techzone-api'})
 
 
+class EmailOrUsernameTokenObtainPairView(TokenObtainPairView):
+    serializer_class = EmailOrUsernameTokenObtainPairSerializer
+
+
 class RegisterView(CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        confirmation_link = f"{settings.FRONTEND_URL}/confirm-email/{uid}/{token}"
+        send_mail(
+            subject='Confirm your TechZone account',
+            message=(
+                'Welcome to TechZone.\n\n'
+                f'Open this link to confirm your account:\n{confirmation_link}\n\n'
+                'After confirmation, you can sign in and start shopping.'
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=True,
+        )
+
+        output = RegisterSerializer(user, context=self.get_serializer_context())
+        headers = self.get_success_headers(output.data)
+        return Response(output.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class LogoutView(CreateAPIView):
@@ -116,6 +153,17 @@ class PasswordResetConfirmView(CreateAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response({'detail': 'Password updated successfully.'}, status=200)
+
+
+class EmailConfirmView(CreateAPIView):
+    serializer_class = EmailConfirmSerializer
+    permission_classes = [AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'detail': 'Email confirmed successfully.'}, status=200)
 
 
 class ProfileView(RetrieveUpdateAPIView):
@@ -210,6 +258,25 @@ class CheckoutView(CreateAPIView):
         serializer.is_valid(raise_exception=True)
         order = serializer.save()
         output_serializer = OrderSerializer(order, context={'request': request})
+        item_lines = '\n'.join(
+            f'- {item.product_name} x {item.quantity}: ${item.total_price}'
+            for item in order.items.all()
+        )
+        send_mail(
+            subject=f'TechZone order #{order.id} confirmation',
+            message=(
+                f'Thank you for your order, {order.full_name}.\n\n'
+                f'Order #{order.id}\n'
+                f'Status: {order.get_status_display()}\n\n'
+                f'{item_lines}\n\n'
+                f'Discount: ${order.discount_amount}\n'
+                f'Total: ${order.total_price}\n\n'
+                'You can track your order from your dashboard.'
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[request.user.email],
+            fail_silently=True,
+        )
         return Response(output_serializer.data, status=201)
 
 
@@ -297,6 +364,86 @@ class ProductListView(ListAPIView):
             queryset = queryset.order_by('-created_at')
 
         return queryset
+
+
+class WishlistListCreateView(ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            WishlistItem.objects.filter(user=self.request.user)
+            .select_related('product', 'product__category')
+            .prefetch_related('product__images')
+        )
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return WishlistItemCreateSerializer
+        return WishlistItemSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        item = serializer.save()
+        output_serializer = WishlistItemSerializer(item, context={'request': request})
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class WishlistDetailView(RetrieveUpdateDestroyAPIView):
+    serializer_class = WishlistItemSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['delete', 'options']
+
+    def get_queryset(self):
+        return WishlistItem.objects.filter(user=self.request.user)
+
+
+class ReviewListCreateView(ListCreateAPIView):
+    serializer_class = ReviewSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAuthenticated()]
+        return [AllowAny()]
+
+    def get_product(self):
+        return get_object_or_404(Product, id=self.kwargs['product_id'], is_active=True)
+
+    def get_queryset(self):
+        return (
+            Review.objects.filter(product=self.get_product())
+            .select_related('user')
+            .order_by('-created_at')
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['product'] = self.get_product()
+        return context
+
+
+class CouponValidateView(CreateAPIView):
+    serializer_class = CouponValidateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        cart, _ = Cart.objects.get_or_create(user=self.request.user)
+        context['cart'] = cart
+        return context
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            {
+                'code': serializer.validated_data['code'],
+                'subtotal_price': serializer.validated_data['subtotal_price'],
+                'discount_amount': serializer.validated_data['discount_amount'],
+                'total_price': serializer.validated_data['total_price'],
+            },
+            status=200,
+        )
 
 
 class ProductDetailView(RetrieveAPIView):

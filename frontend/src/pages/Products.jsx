@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import ProductCard from '../components/ProductCard.jsx';
-import { getCategories, getProducts } from '../api/client.js';
+import { getCategories, getProducts, getWishlist } from '../api/client.js';
+import { useAuth } from '../context/AuthContext.jsx';
 
 const initialFilters = {
   search: '',
@@ -48,8 +49,10 @@ function areFiltersEqual(first, second) {
 }
 
 export default function Products() {
+  const { accessToken, isAuthenticated } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [categories, setCategories] = useState([]);
+  const [wishlistItems, setWishlistItems] = useState([]);
   const [productsData, setProductsData] = useState({
     count: 0,
     next: null,
@@ -94,6 +97,24 @@ export default function Products() {
     };
   }, []);
 
+  async function loadWishlist() {
+    if (!isAuthenticated || !accessToken) {
+      setWishlistItems([]);
+      return;
+    }
+
+    try {
+      const data = await getWishlist(accessToken);
+      setWishlistItems(data.results || data);
+    } catch {
+      setWishlistItems([]);
+    }
+  }
+
+  useEffect(() => {
+    loadWishlist();
+  }, [accessToken, isAuthenticated]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -125,6 +146,9 @@ export default function Products() {
 
   const canGoNext = Boolean(productsData.next);
   const canGoPrevious = Boolean(productsData.previous);
+  const wishlistByProductId = new Map(
+    wishlistItems.map((item) => [item.product.id, item])
+  );
 
   function updateSearchParams(nextFilters, nextPage) {
     setSearchParams(buildSearchParams(nextFilters, nextPage), { replace: true });
@@ -242,7 +266,13 @@ export default function Products() {
             <>
               <div className="product-grid">
                 {productsData.results.map((product, index) => (
-                  <ProductCard key={product.id} product={product} index={index} />
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    index={index}
+                    wishlistItem={wishlistByProductId.get(product.id)}
+                    onWishlistChanged={loadWishlist}
+                  />
                 ))}
               </div>
 

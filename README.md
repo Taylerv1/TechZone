@@ -14,15 +14,22 @@ Minimal e-commerce project built with:
 - Category browsing
 - Product search, filtering, sorting, and pagination
 - Product details
-- User registration and JWT login
+- User registration with email confirmation
+- JWT login and logout
+- Password reset
 - User profile update
 - Address management
 - Authenticated cart
 - Stock validation
 - Checkout with mock payment
 - Order history
+- Wishlist
+- Product reviews and ratings
+- Coupons and discount application at checkout
+- Email notifications for account confirmation, password reset, and order confirmation
 - Contact form
-- Django Admin management for products, categories, orders, users, and contact messages
+- Django Admin management for products, categories, orders, users, contact messages, coupons, reviews, and wishlist
+- Admin reports with low stock alerts
 
 ## Excluded Features
 
@@ -32,10 +39,6 @@ The project intentionally excludes:
 - Custom admin dashboard
 - PostgreSQL
 - Stripe or real payment
-- Coupons
-- Wishlist
-- Reviews and ratings
-- Email notifications
 - Advanced analytics dashboard
 
 ## Backend Setup
@@ -84,57 +87,11 @@ Frontend URL:
 http://127.0.0.1:5173/
 ```
 
-## Deployment Overview
-
-Recommended production setup:
-
-- Frontend: Netlify
-- Backend: Railway
-
-### Backend on Railway
-
-Project service settings:
-
-- Source directory / root directory: `backend`
-- Start command: picked up from `backend/railway.toml` or set to `python railway_start.py`
-- Volume mount path: `/data`
-
-Backend environment variables:
+Sample coupon codes:
 
 ```text
-DEBUG=False
-SECRET_KEY=replace-with-a-long-random-secret-key
-APP_DATA_DIR=/data
-ALLOWED_HOSTS=your-backend-domain.up.railway.app
-CORS_ALLOWED_ORIGINS=https://your-frontend-domain.netlify.app
-CSRF_TRUSTED_ORIGINS=https://your-frontend-domain.netlify.app,https://your-backend-domain.up.railway.app
-FRONTEND_URL=https://your-frontend-domain.netlify.app
-```
-
-Health check:
-
-```text
-GET /api/health/
-```
-
-### Frontend on Netlify
-
-Netlify build settings:
-
-- Base directory: `frontend`
-- Build command: `npm run build`
-- Publish directory: `dist`
-
-Frontend environment variables:
-
-```text
-VITE_API_BASE_URL=https://your-backend-domain.up.railway.app/api
-```
-
-SPA routing is already handled by:
-
-```text
-frontend/public/_redirects
+WELCOME10
+SAVE25
 ```
 
 ## Main API Endpoints
@@ -192,17 +149,32 @@ POST /api/contact/
 
 1. Create categories and products from Django Admin.
 2. Open the React app and browse products.
-3. Register a new user.
+3. Register a new user and confirm the account from the local email link.
 4. Login.
 5. Update profile.
 6. Add an address.
-7. Add a product to cart.
-8. Update cart quantity.
-9. Checkout with mock payment.
-10. Confirm stock is reduced in Django Admin.
-11. Confirm order appears in account order history.
-12. Submit a contact message.
-13. Confirm contact message appears in Django Admin.
+7. Add one or more products to wishlist.
+8. Open a product details page and submit a review.
+9. Add a product to cart.
+10. Update cart quantity.
+11. Apply `WELCOME10` or `SAVE25` during checkout.
+12. Checkout with mock payment.
+13. Confirm stock is reduced in Django Admin.
+14. Confirm order appears in account order history.
+15. Confirm the order confirmation email appears locally.
+16. Request a password reset and open the reset link from the local email output.
+17. Submit a contact message.
+18. Confirm contact message appears in Django Admin.
+
+## Local Email Notes
+
+For presentation and local testing, email-related features can run without deployment:
+
+- Account confirmation email
+- Password reset email
+- Order confirmation email
+
+If you keep the default console email backend, Django prints the email content and links in the backend terminal.
 
 ## Useful Commands
 

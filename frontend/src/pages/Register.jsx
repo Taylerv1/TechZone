@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 
 import AuthScene from '../components/AuthScene.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -14,8 +14,8 @@ const initialForm = {
 
 export default function Register() {
   const { isAuthenticated, register } = useAuth();
-  const navigate = useNavigate();
   const [form, setForm] = useState(initialForm);
+  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -32,10 +32,12 @@ export default function Register() {
     event.preventDefault();
     setIsSubmitting(true);
     setError('');
+    setMessage('');
 
     try {
       await register(form);
-      navigate('/account', { replace: true });
+      setForm(initialForm);
+      setMessage('Account created. Please confirm your email before signing in.');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -109,6 +111,7 @@ export default function Register() {
           </label>
 
           {error && <p className="error-message full-span">{error}</p>}
+          {message && <p className="success-message full-span">{message}</p>}
 
           <button type="submit" className="primary-button full-span" disabled={isSubmitting}>
             {isSubmitting ? 'Creating account...' : 'Create account'}

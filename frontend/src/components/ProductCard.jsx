@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { addCartItem } from '../api/client.js';
+import { addCartItem, createWishlistItem, deleteWishlistItem } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { isProductLoved, toggleLovedProduct } from '../utils/lovedProducts.js';
 import { getProductImage } from '../utils/productImages.js';
 
 function CartIcon() {
@@ -22,30 +21,39 @@ function HeartIcon() {
   );
 }
 
-export default function ProductCard({ product, index }) {
+export default function ProductCard({ product, index, wishlistItem, onWishlistChanged }) {
   const navigate = useNavigate();
   const { accessToken, isAuthenticated } = useAuth();
   const imageUrl = getProductImage(product, index);
   const isOutOfStock = product.stock <= 0;
-  const [isLoved, setIsLoved] = useState(() => isProductLoved(product.id));
   const [isAdding, setIsAdding] = useState(false);
+  const [isUpdatingWishlist, setIsUpdatingWishlist] = useState(false);
   const [message, setMessage] = useState('');
+  const isLoved = Boolean(wishlistItem);
 
-  useEffect(() => {
-    setIsLoved(isProductLoved(product.id));
-  }, [product.id]);
+  async function handleLovedToggle() {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: { pathname: `/products/${product.id}` } } });
+      return;
+    }
 
-  function handleLovedToggle() {
-    const loved = toggleLovedProduct({
-      id: product.id,
-      name: product.name,
-      category_name: product.category_name,
-      price: product.price,
-      stock: product.stock,
-      primary_image: imageUrl,
-    });
-    setIsLoved(loved);
-    setMessage(loved ? 'Saved to loved products.' : 'Removed from loved products.');
+    setIsUpdatingWishlist(true);
+    setMessage('');
+
+    try {
+      if (wishlistItem) {
+        await deleteWishlistItem(accessToken, wishlistItem.id);
+        setMessage('Removed from wishlist.');
+      } else {
+        await createWishlistItem(accessToken, { product_id: product.id });
+        setMessage('Saved to wishlist.');
+      }
+      onWishlistChanged?.();
+    } catch (err) {
+      setMessage(err.message);
+    } finally {
+      setIsUpdatingWishlist(false);
+    }
   }
 
   async function handleAddToCart() {
@@ -91,7 +99,8 @@ export default function ProductCard({ product, index }) {
           <button
             type="button"
             className={isLoved ? 'love-button active' : 'love-button'}
-            aria-label={isLoved ? 'Remove from loved products' : 'Add to loved products'}
+            aria-label={isLoved ? 'Remove from wishlist' : 'Add to wishlist'}
+            disabled={isUpdatingWishlist}
             onClick={handleLovedToggle}
           >
             <HeartIcon />

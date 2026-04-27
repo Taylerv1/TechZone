@@ -13,7 +13,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils.text import slugify
 from PIL import Image, ImageChops, ImageOps, UnidentifiedImageError
 
-from store.models import Category, Product, ProductImage
+from store.models import Category, Coupon, Product, ProductImage
 
 
 USER_AGENT = 'AcademicEcommerceSeeder/1.0 (local academic ecommerce project; support@example.com)'
@@ -32,6 +32,22 @@ CATEGORIES = {
     'lighting': 'Smart lights and desk lighting for modern spaces.',
     'smartwatches': 'Smartwatches and wearables for health and daily tasks.',
 }
+
+
+COUPONS = [
+    {
+        'code': 'WELCOME10',
+        'discount_type': 'percentage',
+        'value': '10.00',
+        'is_active': True,
+    },
+    {
+        'code': 'SAVE25',
+        'discount_type': 'fixed',
+        'value': '25.00',
+        'is_active': True,
+    },
+]
 
 
 PRODUCTS = [
@@ -553,6 +569,7 @@ class Command(BaseCommand):
         created_count = 0
         updated_count = 0
         image_count = 0
+        coupon_count = 0
 
         for index, product_data in enumerate(PRODUCTS):
             product, created = Product.objects.update_or_create(
@@ -591,6 +608,17 @@ class Command(BaseCommand):
                 primary_image.is_primary = True
                 primary_image.save(update_fields=['is_primary'])
 
+        for coupon_data in COUPONS:
+            Coupon.objects.update_or_create(
+                code=coupon_data['code'],
+                defaults={
+                    'discount_type': coupon_data['discount_type'],
+                    'value': Decimal(coupon_data['value']),
+                    'is_active': coupon_data['is_active'],
+                },
+            )
+            coupon_count += 1
+
         deleted_categories = 0
         if options['clean_empty_categories']:
             deleted_categories, _ = (
@@ -606,6 +634,7 @@ class Command(BaseCommand):
         self.stdout.write(f'Products created: {created_count}')
         self.stdout.write(f'Products updated: {updated_count}')
         self.stdout.write(f'Images created: {image_count}')
+        self.stdout.write(f'Coupons ready: {coupon_count}')
         self.stdout.write(f'Old fictional seed products deleted: {deleted_old_products}')
         self.stdout.write(f'Empty extra categories deleted: {deleted_categories}')
         self.stdout.write(f'Unused product image files deleted: {deleted_files}')

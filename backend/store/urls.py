@@ -1,5 +1,4 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .views import (
     AddressDetailView,
@@ -9,7 +8,10 @@ from .views import (
     CartView,
     CategoryListView,
     CheckoutView,
+    CouponValidateView,
     ContactMessageCreateView,
+    EmailOrUsernameTokenObtainPairView,
+    EmailConfirmView,
     HealthCheckView,
     LogoutView,
     OrderDetailView,
@@ -20,13 +22,17 @@ from .views import (
     ProductListView,
     ProfileView,
     RegisterView,
+    ReviewListCreateView,
+    WishlistDetailView,
+    WishlistListCreateView,
 )
 
 urlpatterns = [
     path('health/', HealthCheckView.as_view(), name='health-check'),
     path('auth/register/', RegisterView.as_view(), name='auth-register'),
-    path('auth/login/', TokenObtainPairView.as_view(), name='auth-login'),
+    path('auth/login/', EmailOrUsernameTokenObtainPairView.as_view(), name='auth-login'),
     path('auth/logout/', LogoutView.as_view(), name='auth-logout'),
+    path('auth/confirm-email/', EmailConfirmView.as_view(), name='auth-confirm-email'),
     path('auth/password-reset/', PasswordResetRequestView.as_view(), name='auth-password-reset'),
     path(
         'auth/password-reset-confirm/',
@@ -39,6 +45,9 @@ urlpatterns = [
     path('cart/', CartView.as_view(), name='cart-detail'),
     path('cart/items/', CartItemCreateView.as_view(), name='cart-item-create'),
     path('cart/items/<int:pk>/', CartItemDetailView.as_view(), name='cart-item-detail'),
+    path('wishlist/', WishlistListCreateView.as_view(), name='wishlist-list'),
+    path('wishlist/<int:pk>/', WishlistDetailView.as_view(), name='wishlist-detail'),
+    path('coupons/validate/', CouponValidateView.as_view(), name='coupon-validate'),
     path('orders/checkout/', CheckoutView.as_view(), name='order-checkout'),
     path('orders/', OrderListView.as_view(), name='order-list'),
     path('orders/<int:pk>/', OrderDetailView.as_view(), name='order-detail'),
@@ -46,4 +55,5 @@ urlpatterns = [
     path('categories/', CategoryListView.as_view(), name='category-list'),
     path('products/', ProductListView.as_view(), name='product-list'),
     path('products/<int:pk>/', ProductDetailView.as_view(), name='product-detail'),
+    path('products/<int:product_id>/reviews/', ReviewListCreateView.as_view(), name='review-list'),
 ]

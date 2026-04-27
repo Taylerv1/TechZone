@@ -5,6 +5,7 @@ import { useAuth } from './context/AuthContext.jsx';
 import Account from './pages/Account.jsx';
 import Cart from './pages/Cart.jsx';
 import Checkout from './pages/Checkout.jsx';
+import ConfirmEmail from './pages/ConfirmEmail.jsx';
 import Contact from './pages/Contact.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import Home from './pages/Home.jsx';
@@ -36,6 +37,7 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
+      <Route path="/confirm-email/:uid/:token" element={<ConfirmEmail />} />
 
       <Route element={<Layout />}>
         <Route index element={<Home />} />

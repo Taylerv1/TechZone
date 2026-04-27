@@ -6,16 +6,37 @@ from .models import (
     CartItem,
     Category,
     ContactMessage,
+    Coupon,
     Order,
     OrderItem,
     Product,
     ProductImage,
+    Review,
+    WishlistItem,
 )
 
 
 class ProductImageInline(admin.TabularInline):
     model = ProductImage
     extra = 1
+
+
+class LowStockFilter(admin.SimpleListFilter):
+    title = 'stock level'
+    parameter_name = 'stock_level'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('low', 'Low stock (5 or less)'),
+            ('out', 'Out of stock'),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value() == 'low':
+            return queryset.filter(stock__lte=5)
+        if self.value() == 'out':
+            return queryset.filter(stock=0)
+        return queryset
 
 
 @admin.register(Category)
@@ -26,10 +47,26 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category', 'price', 'stock', 'is_active', 'is_featured']
-    list_filter = ['category', 'is_active', 'is_featured']
+    list_display = [
+        'name',
+        'category',
+        'price',
+        'stock',
+        'stock_status',
+        'is_active',
+        'is_featured',
+    ]
+    list_filter = ['category', LowStockFilter, 'is_active', 'is_featured']
     search_fields = ['name', 'description']
     inlines = [ProductImageInline]
+
+    @admin.display(description='Stock status')
+    def stock_status(self, obj):
+        if obj.stock == 0:
+            return 'Out of stock'
+        if obj.stock <= 5:
+            return 'Low stock'
+        return 'Available'
 
 
 @admin.register(ProductImage)
@@ -64,6 +101,27 @@ class AddressAdmin(admin.ModelAdmin):
     search_fields = ['full_name', 'phone', 'user__username', 'city']
 
 
+@admin.register(Coupon)
+class CouponAdmin(admin.ModelAdmin):
+    list_display = ['code', 'discount_type', 'value', 'is_active', 'created_at']
+    list_filter = ['discount_type', 'is_active', 'created_at']
+    search_fields = ['code']
+
+
+@admin.register(WishlistItem)
+class WishlistItemAdmin(admin.ModelAdmin):
+    list_display = ['user', 'product', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['user__username', 'user__email', 'product__name']
+
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ['product', 'user', 'rating', 'created_at']
+    list_filter = ['rating', 'created_at']
+    search_fields = ['product__name', 'user__username', 'comment']
+
+
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
@@ -73,8 +131,8 @@ class OrderItemInline(admin.TabularInline):
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     change_list_template = 'admin/store/order/change_list.html'
-    list_display = ['id', 'user', 'status', 'total_price', 'created_at']
-    list_filter = ['status', 'created_at']
+    list_display = ['id', 'user', 'status', 'coupon_code', 'discount_amount', 'total_price', 'created_at']
+    list_filter = ['status', 'coupon_code', 'created_at']
     search_fields = ['user__username', 'full_name', 'phone']
     exclude = ['payment_method']
     inlines = [OrderItemInline]

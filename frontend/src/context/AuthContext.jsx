@@ -66,11 +66,7 @@ export function AuthProvider({ children }) {
   }
 
   async function register(payload) {
-    await registerUser(payload);
-    await login({
-      username: payload.username,
-      password: payload.password,
-    });
+    return registerUser(payload);
   }
 
   async function logout() {

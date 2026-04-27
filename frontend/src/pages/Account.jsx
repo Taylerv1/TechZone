@@ -6,11 +6,12 @@ import {
   deleteAddress,
   getAddresses,
   getOrders,
+  getWishlist,
+  deleteWishlistItem,
   updateAddress,
   updateProfile,
 } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { getLovedProducts, removeLovedProduct } from '../utils/lovedProducts.js';
 
 const emptyAddress = {
   full_name: '',
@@ -52,7 +53,7 @@ export default function Account() {
   const [editingAddressId, setEditingAddressId] = useState(null);
   const [addresses, setAddresses] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [lovedProducts, setLovedProducts] = useState([]);
+  const [wishlistItems, setWishlistItems] = useState([]);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -100,18 +101,18 @@ export default function Account() {
     };
   }, [accessToken]);
 
-  useEffect(() => {
-    function loadLovedProducts() {
-      setLovedProducts(getLovedProducts());
+  async function loadWishlist() {
+    try {
+      const data = await getWishlist(accessToken);
+      setWishlistItems(data.results || data);
+    } catch (err) {
+      setError(err.message);
     }
+  }
 
-    loadLovedProducts();
-    window.addEventListener('loved-products-updated', loadLovedProducts);
-
-    return () => {
-      window.removeEventListener('loved-products-updated', loadLovedProducts);
-    };
-  }, []);
+  useEffect(() => {
+    loadWishlist();
+  }, [accessToken]);
 
   function handleProfileChange(event) {
     const { name, value } = event.target;
@@ -196,9 +197,17 @@ export default function Account() {
     }
   }
 
-  function handleRemoveLovedProduct(id) {
-    removeLovedProduct(id);
-    setLovedProducts(getLovedProducts());
+  async function handleRemoveWishlistItem(id) {
+    setMessage('');
+    setError('');
+
+    try {
+      await deleteWishlistItem(accessToken, id);
+      setWishlistItems((current) => current.filter((item) => item.id !== id));
+      setMessage('Product removed from wishlist.');
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   return (
@@ -378,38 +387,40 @@ export default function Account() {
       <section className="account-section">
         <div className="section-heading compact">
           <div>
-            <p className="eyebrow">Loved products</p>
+            <p className="eyebrow">Wishlist</p>
             <h2>Saved for later</h2>
           </div>
           <Link to="/products" className="text-link">Browse products</Link>
         </div>
 
-        {lovedProducts.length === 0 && (
-          <p className="muted">No loved products yet.</p>
+        {wishlistItems.length === 0 && (
+          <p className="muted">No wishlist products yet.</p>
         )}
 
-        {lovedProducts.length > 0 && (
+        {wishlistItems.length > 0 && (
           <div className="loved-grid">
-            {lovedProducts.map((product) => (
-              <article key={product.id} className="loved-card">
-                <Link to={`/products/${product.id}`} className="loved-image-link">
-                  <img src={product.primary_image} alt={product.name} />
+            {wishlistItems.map((item) => (
+              <article key={item.id} className="loved-card">
+                <Link to={`/products/${item.product.id}`} className="loved-image-link">
+                  <img src={item.product.primary_image} alt={item.product.name} />
                 </Link>
                 <div className="loved-card-body">
-                  <p className="eyebrow">{product.category_name}</p>
+                  <p className="eyebrow">{item.product.category_name}</p>
                   <h3>
-                    <Link to={`/products/${product.id}`}>{product.name}</Link>
+                    <Link to={`/products/${item.product.id}`}>{item.product.name}</Link>
                   </h3>
                   <div className="product-meta">
-                    <span className="price">${product.price}</span>
-                    <span className={product.stock <= 0 ? 'stock out' : 'stock'}>
-                      {product.stock <= 0 ? 'Out of stock' : `${product.stock} in stock`}
+                    <span className="price">${item.product.price}</span>
+                    <span className={item.product.stock <= 0 ? 'stock out' : 'stock'}>
+                      {item.product.stock <= 0
+                        ? 'Out of stock'
+                        : `${item.product.stock} in stock`}
                     </span>
                   </div>
                   <button
                     type="button"
                     className="secondary-button"
-                    onClick={() => handleRemoveLovedProduct(product.id)}
+                    onClick={() => handleRemoveWishlistItem(item.id)}
                   >
                     Remove
                   </button>
